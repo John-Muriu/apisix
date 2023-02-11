@@ -27,21 +27,25 @@ def cur_dir():
     return os.path.split(os.path.realpath(__file__))[0]
 
 def apisix_pwd():
-    return os.environ.get("APISIX_FUZZING_PWD") or \
-            (str(Path.home()) + "/work/apisix/apisix")
+    return (
+        os.environ.get("APISIX_FUZZING_PWD")
+        or f"{str(Path.home())}/work/apisix/apisix"
+    )
 
 def connect_admin():
-    conn = http.client.HTTPConnection("127.0.0.1", port=9180)
-    return conn
+    return http.client.HTTPConnection("127.0.0.1", port=9180)
 
 def check_log():
-    boofuzz_log = cur_dir() + "/test.log"
-    apisix_errorlog = apisix_pwd() + "/logs/error.log"
-    apisix_accesslog = apisix_pwd() + "/logs/access.log"
+    boofuzz_log = f"{cur_dir()}/test.log"
+    apisix_errorlog = f"{apisix_pwd()}/logs/error.log"
+    apisix_accesslog = f"{apisix_pwd()}/logs/access.log"
 
-    cmds = ['cat %s | grep -a "error" | grep -v "invalid request body"'%apisix_errorlog, 'cat %s | grep -a " 500 "'%apisix_accesslog]
+    cmds = [
+        f'cat {apisix_errorlog} | grep -a "error" | grep -v "invalid request body"',
+        f'cat {apisix_accesslog} | grep -a " 500 "',
+    ]
     if os.path.exists(boofuzz_log):
-        cmds.append('cat %s | grep -a "fail"'%boofuzz_log)
+        cmds.append(f'cat {boofuzz_log} | grep -a "fail"')
     for cmd in cmds:
         r = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         err = r.stdout.read().strip()
@@ -49,7 +53,7 @@ def check_log():
         assert err == b""
 
 def check_process():
-    with open(apisix_pwd() + "/logs/nginx.pid") as f:
+    with open(f"{apisix_pwd()}/logs/nginx.pid") as f:
         pid = int(f.read().strip())
     parent = psutil.Process(pid)
     children = parent.children(recursive=True)
@@ -58,16 +62,21 @@ def check_process():
     return process
 
 def initfuzz():
-    fw = open(cur_dir() + "/test.log",'w')
+    fw = open(f"{cur_dir()}/test.log", 'w')
     fuzz_loggers = [FuzzLoggerText(file_handle=fw)]
-    session = Session(
+    return Session(
         target=Target(
-            connection=TCPSocketConnection("127.0.0.1", 9080, send_timeout=5.0, recv_timeout=5.0, server=False)
+            connection=TCPSocketConnection(
+                "127.0.0.1",
+                9080,
+                send_timeout=5.0,
+                recv_timeout=5.0,
+                server=False,
+            )
         ),
         fuzz_loggers=fuzz_loggers,
         keep_web_open=False,
     )
-    return session
 
 def sum_memory():
     pmap = {}
@@ -80,12 +89,10 @@ def get_linear_regression_sloped(samples):
     n = len(samples)
     avg_x = (n + 1) / 2
     avg_y = sum(samples) / n
-    avg_xy = sum([(i + 1) * v for i, v in enumerate(samples)]) / n
-    avg_x2 = sum([i * i for i in range(1, n + 1)]) / n
+    avg_xy = sum((i + 1) * v for i, v in enumerate(samples)) / n
+    avg_x2 = sum(i * i for i in range(1, n + 1)) / n
     denom = avg_x2 - avg_x * avg_x
-    if denom == 0:
-        return None
-    return (avg_xy - avg_x * avg_y) / denom
+    return None if denom == 0 else (avg_xy - avg_x * avg_y) / denom
 
 def gc():
     conn = http.client.HTTPConnection("127.0.0.1", port=9090)

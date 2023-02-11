@@ -44,12 +44,12 @@ def req():
     conn.close()
 
 def run_in_thread():
-    for i in range(50):
+    for _ in range(50):
         req()
 
 @check_leak
 def run():
-    th = [threading.Thread(target=run_in_thread) for i in range(10)]
+    th = [threading.Thread(target=run_in_thread) for _ in range(10)]
     for t in th:
         t.start()
     for t in th:

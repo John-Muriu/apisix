@@ -56,39 +56,38 @@ def create_conf():
     consumers = []
     for i in range(RULE_SIZE):
         i = str(i)
-        consumers.append({
-            "username": "jack" + i,
-            "plugins": {
-                "jwt-auth": {
-                    "key": "user-key-" + i,
-                    "secret": "my-secret-key"
-                }
+        consumers.append(
+            {
+                "username": f"jack{i}",
+                "plugins": {
+                    "jwt-auth": {
+                        "key": f"user-key-{i}",
+                        "secret": "my-secret-key",
+                    }
+                },
             }
-        })
-        routes.append({
-            "upstream_id": 1,
-            "uri": "/*",
-            "host": "test" + i + ".com",
-            "plugins": {
-                "limit-count": {
-                    "count": 1e8,
-                    "time_window": 3600,
+        )
+        routes.append(
+            {
+                "upstream_id": 1,
+                "uri": "/*",
+                "host": f"test{i}.com",
+                "plugins": {
+                    "limit-count": {
+                        "count": 1e8,
+                        "time_window": 3600,
+                    },
+                    "jwt-auth": {},
+                    "proxy-rewrite": {
+                        "uri": f"/{i}",
+                        "headers": {"X-APISIX-Route": f"apisix-{i}"},
+                    },
+                    "response-rewrite": {
+                        "headers": {"X-APISIX-Route": "$http_x_apisix_route"}
+                    },
                 },
-                "jwt-auth": {
-                },
-                "proxy-rewrite": {
-                    "uri": "/" + i,
-                    "headers": {
-                        "X-APISIX-Route": "apisix-" + i
-                    }
-                },
-                "response-rewrite": {
-                    "headers": {
-                        "X-APISIX-Route": "$http_x_apisix_route"
-                    }
-                },
-            },
-        })
+            }
+        )
     upstreams = [{
         "id": 1,
         "nodes": {
@@ -107,19 +106,13 @@ def create_conf():
         },
     })
 
-    conf = {}
-    conf["routes"] = routes
-    conf["consumers"] = consumers
-    conf["upstreams"] = upstreams
+    conf = {"routes": routes, "consumers": consumers, "upstreams": upstreams}
     with open("./conf/apisix-perf.yaml", "w") as f:
         yaml.dump(conf, f)
         f.write("#END\n")
 
 def apisix_executable():
-    exe = "apisix"
-    if os.path.exists("./bin/apisix"):
-        exe = "./bin/apisix"
-    return exe
+    return "./bin/apisix" if os.path.exists("./bin/apisix") else "apisix"
 
 def start_apisix():
     os.environ["APISIX_PROFILE"] = "perf"
@@ -135,7 +128,7 @@ def start_upstream(wd):
 
 def create_env():
     temp = tempfile.mkdtemp()
-    print("Create test directory %s" % temp)
+    print(f"Create test directory {temp}")
     shutil.copytree("t/perf/conf", os.path.join(temp, "conf"))
     os.mkdir(os.path.join(temp, "logs"))
     return temp
@@ -159,13 +152,13 @@ class TestHTTP(unittest.TestCase):
         conn = http.client.HTTPConnection("127.0.0.1", port=9080)
         for i in range(RULE_SIZE):
             i = str(i)
-            conn.request("GET", "/gen_token?key=user-key-" + i)
+            conn.request("GET", f"/gen_token?key=user-key-{i}")
             response = conn.getresponse()
             if response.status >= 300:
-                print("failed to sign, got: %s" % response.read())
+                print(f"failed to sign, got: {response.read()}")
                 conn.close()
                 return
-            signs.append('"' + response.read().decode() + '"')
+            signs.append(f'"{response.read().decode()}"')
         conn.close()
 
         script = os.path.join(self.tempdir, "wrk.lua")
