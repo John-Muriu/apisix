@@ -28,13 +28,7 @@ def need_fold(pre, cur):
     if ord(pre[-1]) < 128 or ord(cur[0]) < 128:
         return False
     # the prev line ends with Chinese and the curr line starts with Chinese
-    if pre.startswith(":::note"):
-        # ignore special mark
-        return False
-    if pre[-1] in punctuation:
-        # skip punctuation
-        return False
-    return True
+    return False if pre.startswith(":::note") else pre[-1] not in punctuation
 
 def check_segment(root):
     for parent, dirs, files in os.walk(root):
@@ -52,7 +46,7 @@ def check_segment(root):
                     else:
                         new_lines.append(lines[i])
             if len(new_lines) != len(lines):
-                print("find broken newline in file: %s" % fn)
+                print(f"find broken newline in file: {fn}")
                 with open(fn, "w") as f:
                     f.writelines(new_lines)
 

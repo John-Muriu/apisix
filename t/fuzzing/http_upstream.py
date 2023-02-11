@@ -37,47 +37,47 @@ def create_route():
         port = ":6666" if i % 2 == 0 else ":6667"
         suffix = str(i + 1)
         i = str(i)
-        conf = json.dumps({
-            "uri": "/*",
-            "host": "test" + i + ".com",
-            "plugins": {
-            },
-            "upstream": {
-                "scheme": scheme,
-                "nodes": {
-                    "127.0.0." + suffix + port: 1
+        conf = json.dumps(
+            {
+                "uri": "/*",
+                "host": f"test{i}.com",
+                "plugins": {},
+                "upstream": {
+                    "scheme": scheme,
+                    "nodes": {f"127.0.0.{suffix}{port}": 1},
+                    "type": "roundrobin",
                 },
-                "type": "roundrobin"
-            },
-        })
+            }
+        )
 
-        conn.request("PUT", "/apisix/admin/routes/" + i, conf,
-                headers={
-                    "X-API-KEY":"edd1c9f034335f136f87ad84b625c8f1",
-                })
+        conn.request(
+            "PUT",
+            f"/apisix/admin/routes/{i}",
+            conf,
+            headers={
+                "X-API-KEY": "edd1c9f034335f136f87ad84b625c8f1",
+            },
+        )
         response = conn.getresponse()
         assert response.status <= 300, response.read()
 
 def req():
     route_id = random.randrange(TOTOL_ROUTES)
     conn = http.client.HTTPConnection("127.0.0.1", port=9080)
-    conn.request("GET", "/server_addr",
-            headers={
-                "Host":"test" + str(route_id) + ".com",
-            })
+    conn.request("GET", "/server_addr", headers={"Host": f"test{route_id}.com"})
     response = conn.getresponse()
     assert response.status == 200, response.read()
     ip = response.read().rstrip().decode()
     suffix = str(route_id + 1)
-    assert "127.0.0." + suffix == ip, f"expect: 127.0.0.{suffix}, actual: {ip}"
+    assert f"127.0.0.{suffix}" == ip, f"expect: 127.0.0.{suffix}, actual: {ip}"
 
 def run_in_thread():
-    for i in range(REQ_PER_THREAD):
+    for _ in range(REQ_PER_THREAD):
         req()
 
 @check_leak
 def run():
-    th = [threading.Thread(target=run_in_thread) for i in range(THREADS_NUM)]
+    th = [threading.Thread(target=run_in_thread) for _ in range(THREADS_NUM)]
     for t in th:
         t.start()
     for t in th:

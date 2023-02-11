@@ -51,40 +51,39 @@ def create_route():
     for i in range(TOTOL_ROUTES):
         conn = connect_admin()
         i = str(i)
-        conf = json.dumps({
-            "uri": "/*",
-            "host": "test" + i + ".com",
-            "plugins": {
-                "limit-count": {
-                    "count": LEAK_COUNT * REQ_PER_THREAD * THREADS_NUM,
-                    "time_window": 3600,
+        conf = json.dumps(
+            {
+                "uri": "/*",
+                "host": f"test{i}.com",
+                "plugins": {
+                    "limit-count": {
+                        "count": LEAK_COUNT * REQ_PER_THREAD * THREADS_NUM,
+                        "time_window": 3600,
+                    },
+                    "jwt-auth": {},
+                    "proxy-rewrite": {
+                        "uri": f"/{i}",
+                        "headers": {"X-APISIX-Route": f"apisix-{i}"},
+                    },
+                    "response-rewrite": {
+                        "headers": {"X-APISIX-Route": "$http_x_apisix_route"}
+                    },
                 },
-                "jwt-auth": {
+                "upstream": {
+                    "nodes": {"127.0.0.1:6666": 1},
+                    "type": "roundrobin",
                 },
-                "proxy-rewrite": {
-                    "uri": "/" + i,
-                    "headers": {
-                        "X-APISIX-Route": "apisix-" + i
-                    }
-                },
-                "response-rewrite": {
-                    "headers": {
-                        "X-APISIX-Route": "$http_x_apisix_route"
-                    }
-                },
-            },
-            "upstream": {
-                "nodes": {
-                    "127.0.0.1:6666": 1
-                },
-                "type": "roundrobin"
-            },
-        })
+            }
+        )
 
-        conn.request("PUT", "/apisix/admin/routes/" + i, conf,
-                headers={
-                    "X-API-KEY":"edd1c9f034335f136f87ad84b625c8f1",
-                })
+        conn.request(
+            "PUT",
+            f"/apisix/admin/routes/{i}",
+            conf,
+            headers={
+                "X-API-KEY": "edd1c9f034335f136f87ad84b625c8f1",
+            },
+        )
         response = conn.getresponse()
         assert response.status <= 300, response.read()
 
@@ -94,23 +93,23 @@ def req():
         "fNtFJnNmJgzbiYmGB0Yjvm-l6A6M4jRV1l4mnVFSYjs")
     route_id = str(random.randrange(TOTOL_ROUTES))
     conn = http.client.HTTPConnection("127.0.0.1", port=9080)
-    conn.request("GET", "/",
-            headers={
-                "Host":"test" + route_id + ".com",
-                "Authorization":jwt_token,
-            })
+    conn.request(
+        "GET",
+        "/",
+        headers={"Host": f"test{route_id}.com", "Authorization": jwt_token},
+    )
     response = conn.getresponse()
     assert response.status == 200, response.read()
     hdr = response.headers["X-APISIX-Route"]
-    assert hdr == "apisix-" + route_id, hdr
+    assert hdr == f"apisix-{route_id}", hdr
 
 def run_in_thread():
-    for i in range(REQ_PER_THREAD):
+    for _ in range(REQ_PER_THREAD):
         req()
 
 @check_leak
 def run():
-    th = [threading.Thread(target=run_in_thread) for i in range(THREADS_NUM)]
+    th = [threading.Thread(target=run_in_thread) for _ in range(THREADS_NUM)]
     for t in th:
         t.start()
     for t in th:
